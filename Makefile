@@ -35,15 +35,15 @@ test:  ## lint and run the Python tests
 	ruff check src tests scripts && pytest -q
 
 offline:  ## no Docker: replay sample events into a local-file Iceberg warehouse, then dbt
-	mkdir -p .lakehouse/warehouse
+	mkdir -p .lakehouse-offline/warehouse
 	python scripts/generate_sample_events.py
-	ICEBERG_WAREHOUSE=file://$(CURDIR)/.lakehouse/warehouse python -m lakehouse.replay sample_data/cdc_events.jsonl
-	cd dbt && ICEBERG_WAREHOUSE=file://$(CURDIR)/.lakehouse/warehouse dbt build --profiles-dir .
+	ICEBERG_CATALOG_URI=sqlite:///$(CURDIR)/.lakehouse-offline/catalog.db DUCKDB_PATH=$(CURDIR)/.lakehouse-offline/analytics.duckdb ICEBERG_WAREHOUSE=file://$(CURDIR)/.lakehouse-offline/warehouse python -m lakehouse.replay sample_data/cdc_events.jsonl
+	cd dbt && ICEBERG_CATALOG_URI=sqlite:///$(CURDIR)/.lakehouse-offline/catalog.db DUCKDB_PATH=$(CURDIR)/.lakehouse-offline/analytics.duckdb ICEBERG_WAREHOUSE=file://$(CURDIR)/.lakehouse-offline/warehouse dbt build --profiles-dir .
 
 demo: up infra register simulate consume dbt  ## the whole pipeline, end to end
 
 down:  ## stop everything and delete volumes and local state
 	docker compose down -v
-	rm -rf .lakehouse
+	rm -rf .lakehouse .lakehouse-offline terraform/terraform.tfstate*
 
 .PHONY: help install up infra register simulate consume dbt test offline demo down
