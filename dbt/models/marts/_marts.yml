@@ -1,0 +1,117 @@
+version: 2
+
+models:
+  - name: dim_patient
+    description: SCD Type 2 patients. Email is hashed and phone masked.
+    data_tests:
+      - scd2_valid:
+          arguments:
+            key: patient_id
+    columns:
+      - name: patient_sk
+        data_tests: [unique, not_null]
+
+  - name: dim_clinic
+    data_tests:
+      - scd2_valid:
+          arguments:
+            key: clinic_id
+    columns:
+      - name: clinic_sk
+        data_tests: [unique, not_null]
+
+  - name: dim_practitioner
+    data_tests:
+      - scd2_valid:
+          arguments:
+            key: practitioner_id
+    columns:
+      - name: practitioner_sk
+        data_tests: [unique, not_null]
+
+  - name: fct_appointments
+    description: One row per appointment (current status) with point-in-time dimension keys.
+    columns:
+      - name: appointment_id
+        data_tests: [unique, not_null]
+      - name: status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["booked", "completed", "cancelled", "no_show"]
+      - name: patient_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_patient')
+                field: patient_sk
+      - name: practitioner_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_practitioner')
+                field: practitioner_sk
+      - name: clinic_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_clinic')
+                field: clinic_sk
+      - name: duration_minutes
+        data_tests:
+          - positive_value
+
+  - name: fct_payments
+    description: One row per payment, loaded incrementally by LSN. Refunds have negative net_amount.
+    columns:
+      - name: payment_id
+        data_tests: [unique, not_null]
+      - name: amount
+        data_tests:
+          - positive_value
+      - name: appointment_id
+        description: >
+          Warns rather than fails: a payment can arrive for an appointment the quality gate
+          held back. The orphan is visible here and in mart_data_quality_issues until the
+          source team fixes the appointment and it is replayed.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('fct_appointments')
+                field: appointment_id
+              config:
+                severity: warn
+
+  - name: mart_clinic_monthly
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [clinic_id, month]
+
+unit_tests:
+  - name: no_show_rate_ignores_cancellations_and_open_bookings
+    description: No-show rate = no-shows / (completed + no-shows). Cancelled and still-booked appointments are excluded.
+    model: mart_clinic_monthly
+    given:
+      - input: ref('fct_appointments')
+        rows:
+          - {appointment_id: 1, clinic_id: 1, starts_at: "2026-09-02 10:00:00+00", is_completed: true,  is_cancelled: false, is_no_show: false, reschedule_count: 0}
+          - {appointment_id: 2, clinic_id: 1, starts_at: "2026-09-03 10:00:00+00", is_completed: true,  is_cancelled: false, is_no_show: false, reschedule_count: 1}
+          - {appointment_id: 3, clinic_id: 1, starts_at: "2026-09-04 10:00:00+00", is_completed: true,  is_cancelled: false, is_no_show: false, reschedule_count: 0}
+          - {appointment_id: 4, clinic_id: 1, starts_at: "2026-09-05 10:00:00+00", is_completed: false, is_cancelled: false, is_no_show: true,  reschedule_count: 0}
+          - {appointment_id: 5, clinic_id: 1, starts_at: "2026-09-06 10:00:00+00", is_completed: false, is_cancelled: true,  is_no_show: false, reschedule_count: 0}
+          - {appointment_id: 6, clinic_id: 1, starts_at: "2026-09-07 10:00:00+00", is_completed: false, is_cancelled: false, is_no_show: false, reschedule_count: 0}
+      - input: ref('fct_payments')
+        rows:
+          - {payment_id: 1, appointment_id: 1, net_amount: 120.00, is_deleted: false}
+          - {payment_id: 2, appointment_id: 2, net_amount: -120.00, is_deleted: false}
+          - {payment_id: 3, appointment_id: 3, net_amount: 85.00, is_deleted: true}
+      - input: ref('dim_clinic')
+        rows:
+          - {clinic_id: 1, clinic_name: "Fraser Valley Physio", is_current: true}
+    expect:
+      rows:
+        - {clinic_id: 1, appointments: 6, completed: 3, cancelled: 1, no_shows: 1, reschedules: 1, no_show_rate: 0.25, cancellation_rate: 0.1667, net_revenue: 0.00}

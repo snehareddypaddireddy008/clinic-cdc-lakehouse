@@ -1,0 +1,20 @@
+# dbt reads the bronze Iceberg tables through the same catalog the consumer writes to,
+# then builds the star schema in a local DuckDB file. Paths default to running from dbt/.
+clinic_lakehouse:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('DUCKDB_PATH', '../.lakehouse/analytics.duckdb') }}"
+      threads: 4
+      plugins:
+        - module: iceberg
+          config:
+            catalog: clinic
+            type: sql
+            uri: "{{ env_var('ICEBERG_CATALOG_URI', 'sqlite:///../.lakehouse/catalog.db') }}"
+            warehouse: "{{ env_var('ICEBERG_WAREHOUSE', 's3://clinic-lakehouse-dev/warehouse') }}"
+            s3.endpoint: "{{ env_var('S3_ENDPOINT', 'http://localhost:8333') }}"
+            s3.access-key-id: "{{ env_var('S3_ACCESS_KEY', 'lakehouse') }}"
+            s3.secret-access-key: "{{ env_var('S3_SECRET_KEY', 'lakehouse-secret') }}"
+            s3.region: "{{ env_var('S3_REGION', 'us-east-1') }}"

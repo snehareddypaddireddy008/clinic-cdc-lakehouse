@@ -1,0 +1,34 @@
+{
+  // GitHub Codespaces / VS Code dev container: everything the project needs, nothing on your laptop.
+  "name": "clinic-cdc-lakehouse",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/terraform:1": {}
+  },
+  "hostRequirements": {
+    "cpus": 2,
+    "memory": "8gb",
+    "storage": "32gb"
+  },
+  "postCreateCommand": "pip install -U pip && pip install -e '.[dev]'",
+  "forwardPorts": [8083, 8333],
+  "portsAttributes": {
+    "8083": { "label": "Kafka Connect", "onAutoForward": "silent" },
+    "8333": { "label": "S3 (SeaweedFS)", "onAutoForward": "silent" },
+    "5432": { "onAutoForward": "ignore" },
+    "9092": { "onAutoForward": "ignore" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "hashicorp.terraform",
+        "innoverio.vscode-dbt-power-user"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/python/current/bin/python"
+      }
+    }
+  }
+}

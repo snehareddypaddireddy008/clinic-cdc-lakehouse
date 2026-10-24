@@ -1,0 +1,32 @@
+version: 2
+
+models:
+  - name: stg_appointments_changes
+    description: Deduplicated change log for appointments.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [appointment_id, _lsn, _op]
+    columns:
+      - name: _op
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["r", "c", "u", "d"]
+  - name: stg_payments_changes
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [payment_id, _lsn, _op]
+  - name: stg_patients_changes
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [patient_id, _lsn, _op]
+  - name: stg_quarantine
+    columns:
+      - name: severity
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["warn", "error"]

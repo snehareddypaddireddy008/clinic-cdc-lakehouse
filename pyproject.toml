@@ -1,0 +1,29 @@
+[project]
+name = "clinic-cdc-lakehouse"
+version = "0.1.0"
+description = "Postgres CDC with Debezium and Kafka into Apache Iceberg, modelled with dbt."
+requires-python = ">=3.11"
+dependencies = [
+    "pyiceberg[sql-sqlite,pyarrow,pyiceberg-core]>=0.10",
+    "confluent-kafka>=2.5",
+    "psycopg[binary]>=3.2",
+    "dbt-duckdb>=1.9,<2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "scripts"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"

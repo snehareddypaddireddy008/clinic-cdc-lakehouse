@@ -1,0 +1,18 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: >
+      Append-only CDC change logs in Apache Iceberg, written by the Kafka consumer.
+      One row per change (snapshot read, insert, update or delete) with _op, _lsn and _source_ts.
+    meta:
+      plugin: iceberg
+      iceberg_table: "bronze.{identifier}"
+    tables:
+      - name: clinics
+      - name: practitioners
+      - name: patients
+      - name: appointments
+      - name: payments
+      - name: quarantine
+        description: Changes that failed a quality rule, with severity, owning team and original payload.

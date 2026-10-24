@@ -1,0 +1,40 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # CI runs without Docker: Iceberg on the local filesystem, events replayed from a file.
+      ICEBERG_WAREHOUSE: file://${{ github.workspace }}/.lakehouse/warehouse
+      ICEBERG_CATALOG_URI: sqlite:///${{ github.workspace }}/.lakehouse/catalog.db
+      DUCKDB_PATH: ${{ github.workspace }}/.lakehouse/analytics.duckdb
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check src tests scripts && ruff format --check src tests scripts
+
+      - name: Unit and integration tests
+        run: pytest -q
+
+      - name: Load sample CDC events into Iceberg
+        run: |
+          mkdir -p .lakehouse/warehouse
+          python scripts/generate_sample_events.py --out sample_data/cdc_events.jsonl
+          python -m lakehouse.replay sample_data/cdc_events.jsonl
+
+      - name: dbt build (models, data tests, unit tests)
+        working-directory: dbt
+        run: dbt build --profiles-dir .
